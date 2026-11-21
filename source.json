@@ -12,19 +12,20 @@
       "iconURL": "https://raw.githubusercontent.com/chen2he/orange-cloud/main/apps/web/public/icons/icon-512.png",
       "tintColor": "#F38020",
       "version": "2.2.0",
-      "buildVersion": "7",
-      "versionDate": "2026-11-21T15:36:45Z",
-      "size": 16033658,
-      "downloadURL": "https://github.com/jrmzchi/orange-cloud/releases/download/jcc-cloud-7/JCC-Cloud.ipa",
+      "buildVersion": "9",
+      "versionDate": "2026-11-21T16:55:18Z",
+      "size": 15876522,
+      "downloadURL": "https://github.com/jrmzchi/orange-cloud/releases/download/jcc-cloud-9/MeowFlare-Lite.ipa",
       "permissions": [],
       "versions": [
         {
           "version": "2.2.0",
-          "buildVersion": "7",
-          "date": "2026-11-21T15:36:45Z",
-          "size": 16033658,
-          "downloadURL": "https://github.com/jrmzchi/orange-cloud/releases/download/jcc-cloud-7/JCC-Cloud.ipa",
-          "localizedDescription": "Automated build from bafa3227336c"
+          "buildVersion": "9",
+          "date": "2026-11-21T16:55:18Z",
+          "size": 15876522,
+          "downloadURL": "https://github.com/jrmzchi/orange-cloud/releases/download/jcc-cloud-9/MeowFlare-Lite.ipa",
+          "minOSVersion": "17.0",
+          "localizedDescription": "Lite build from abc9fa001394"
         }
       ]
     }
