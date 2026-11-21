@@ -1,0 +1,105 @@
+name: Build JCC Cloud IPA and AltStore Source
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'source.json'
+      - 'README.md'
+permissions:
+  contents: write
+concurrency:
+  group: jcc-cloud-release
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode 26
+        run: |
+          xcodebuild -version
+      - name: Configure fork identifiers and open-source features
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("apps/ios/Orange Cloud/Orange Cloud.xcodeproj/project.pbxproj")
+          s=p.read_text()
+          s=s.replace('jiamin.chen.orange-cloud','com.jccmon.jcccloud')
+          s=s.replace('6G78MMY657','')
+          # Build setting is inherited by the main app and embedded extensions.
+          s=s.replace('SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";','SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG OPENSOURCE_UNLOCKED $(inherited)";')
+          s=s.replace('SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited)";','SWIFT_ACTIVE_COMPILATION_CONDITIONS = "OPENSOURCE_UNLOCKED $(inherited)";')
+          p.write_text(s)
+          # App groups in entitlements must not refer to upstream owner's group.
+          for ent in Path("apps/ios/Orange Cloud").rglob("*.entitlements"):
+              data=ent.read_text()
+              data=data.replace('group.jiamin.chen.orange-cloud','group.com.jccmon.jcccloud')
+              ent.write_text(data)
+          PY
+      - name: Build unsigned iOS application
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild -project "apps/ios/Orange Cloud/Orange Cloud.xcodeproj" \
+            -scheme "Orange Cloud" -configuration Release -sdk iphoneos \
+            -destination "generic/platform=iOS" \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
+            SWIFT_ACTIVE_COMPILATION_CONDITIONS='OPENSOURCE_UNLOCKED' \
+            build
+      - name: Package unsigned IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p Payload
+          cp -R "$RUNNER_TEMP/DerivedData/Build/Products/Release-iphoneos/Orange Cloud.app" Payload/
+          /usr/bin/zip -qry JCC-Cloud.ipa Payload
+          test -s JCC-Cloud.ipa
+      - name: Publish IPA and update AltStore feed
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_NUMBER: ${{ github.run_number }}
+          COMMIT_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="jcc-cloud-${RUN_NUMBER}"
+          gh release create "$TAG" JCC-Cloud.ipa --title "JCC Cloud build ${RUN_NUMBER}" --notes "Unsigned self-built IPA from ${COMMIT_SHA}. Sign using AltStore. Upstream source: chen2he/orange-cloud." --latest
+          python3 - <<'PY'
+          import json,os,datetime
+          from pathlib import Path
+          repo=os.environ['REPO']; run=os.environ['RUN_NUMBER']
+          tag=f'jcc-cloud-{run}'
+          now=datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='seconds').replace('+00:00','Z')
+          feed={
+            'name':'JCC Cloud Builds',
+            'identifier':'com.jccmon.altstore',
+            'sourceURL':f'https://raw.githubusercontent.com/{repo}/main/source.json',
+            'apps':[{
+              'name':'JCC Cloud',
+              'bundleIdentifier':'com.jccmon.jcccloud',
+              'developerName':'JCC Cloud (self-build)',
+              'subtitle':'Cloudflare management client',
+              'localizedDescription':'Personal build of Orange Cloud, from the upstream source. Unsigned IPA for AltStore signing.',
+              'iconURL':'https://raw.githubusercontent.com/chen2he/orange-cloud/main/apps/web/public/icons/icon-512.png',
+              'tintColor':'#F38020',
+              'version':f'1.0.{run}',
+              'versionDate':now,
+              'size':Path('JCC-Cloud.ipa').stat().st_size,
+              'downloadURL':f'https://github.com/{repo}/releases/download/{tag}/JCC-Cloud.ipa',
+              'permissions':[],
+              'versions':[{'version':f'1.0.{run}','date':now,'size':Path('JCC-Cloud.ipa').stat().st_size,'downloadURL':f'https://github.com/{repo}/releases/download/{tag}/JCC-Cloud.ipa','localizedDescription':f'Automated build from {os.environ["COMMIT_SHA"][:12]}'}]
+            }]
+          }
+          Path('source.json').write_text(json.dumps(feed,ensure_ascii=False,indent=2)+'\n')
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add source.json
+          git commit -m "ci: update AltStore source for build ${RUN_NUMBER}" || true
+          git push origin HEAD:main
