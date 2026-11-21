@@ -10,7 +10,7 @@ permissions:
   contents: write
 concurrency:
   group: jcc-cloud-release
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   build:
     runs-on: macos-26
