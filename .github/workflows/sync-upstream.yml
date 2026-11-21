@@ -5,6 +5,7 @@ on:
   workflow_dispatch:
 permissions:
   contents: write
+  actions: write
 jobs:
   sync:
     runs-on: ubuntu-latest
@@ -15,6 +16,9 @@ jobs:
           persist-credentials: true
       - name: Merge upstream without overwriting local changes
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
@@ -27,3 +31,5 @@ jobs:
           fi
           git merge --no-edit upstream/main
           git push origin HEAD:main
+          # GITHUB_TOKEN pushes do not trigger the build workflow's push event.
+          gh workflow run ios-build.yml --ref main
