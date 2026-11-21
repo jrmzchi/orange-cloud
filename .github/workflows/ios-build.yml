@@ -50,7 +50,7 @@ jobs:
         run: |
           set -euo pipefail
           xcodebuild -project "apps/ios/Orange Cloud/Orange Cloud.xcodeproj" \
-            -scheme "Orange Cloud" -configuration Release -sdk iphoneos \
+            -scheme "Orange Cloud" -configuration Release \
             -destination "generic/platform=iOS" \
             -derivedDataPath "$RUNNER_TEMP/DerivedData" \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
