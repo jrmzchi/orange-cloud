@@ -71,7 +71,41 @@ jobs:
           test -s JCC-Cloud.ipa
           /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' 'Payload/Orange Cloud.app/Info.plist' | grep -Fx 'com.jccmon.jcccloud'
           unzip -tq JCC-Cloud.ipa
+      - name: Create diagnostic IPAs and inspect Mach-O files
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p diagnostic
+          cp JCC-Cloud.ipa diagnostic/JCC-Cloud-Full.ipa
+          cp -R Payload diagnostic/
+          APP="diagnostic/Payload/Orange Cloud.app"
+          # Keep the main iOS app and its required frameworks, but remove optional embedded targets.
+          rm -rf "$APP/Watch" "$APP/PlugIns"
+          (cd diagnostic && /usr/bin/zip -qry JCC-Cloud-Lite.ipa Payload)
+          rm -rf diagnostic/Payload
+          for ipa in diagnostic/*.ipa; do
+            unzip -tq "$ipa"
+            echo "=== $ipa ==="
+            unzip -Z1 "$ipa" | grep -E '(^Payload/[^/]+\\.app/|/PlugIns/|/Watch/)' | head -80 || true
+          done
+          find Payload -type f -print0 | while IFS= read -r -d '' file; do
+            if file -b "$file" | grep -q 'Mach-O'; then
+              echo "MACHO: $file"
+              xcrun lipo -archs "$file" || true
+              xcrun codesign -dv "$file" 2>&1 | head -8 || true
+            fi
+          done
+      - name: Upload diagnostic IPA variants
+        uses: actions/upload-artifact@v4
+        with:
+          name: JCC-Cloud-Signing-Diagnostics
+          path: |
+            diagnostic/JCC-Cloud-Full.ipa
+            diagnostic/JCC-Cloud-Lite.ipa
+          if-no-files-found: error
+          retention-days: 7
       - name: Publish IPA and update AltStore feed
+        if: ${{ false }}
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
