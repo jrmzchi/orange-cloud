@@ -29,15 +29,20 @@ jobs:
           p=Path("apps/ios/Orange Cloud/Orange Cloud.xcodeproj/project.pbxproj")
           s=p.read_text()
           s=s.replace('jiamin.chen.orange-cloud','com.jccmon.jcccloud')
+          s=s.replace('INFOPLIST_KEY_CFBundleDisplayName = "Orange Cloud";', 'INFOPLIST_KEY_CFBundleDisplayName = "JCC Cloud";')
           s=s.replace('DEVELOPMENT_TEAM = 6G78MMY657;', 'DEVELOPMENT_TEAM = "";')
           # Build setting is inherited by the main app and embedded extensions.
           s=s.replace('SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";','SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG OPENSOURCE_UNLOCKED $(inherited)";')
           s=s.replace('SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited)";','SWIFT_ACTIVE_COMPILATION_CONDITIONS = "OPENSOURCE_UNLOCKED $(inherited)";')
+          import os,re
+          s=re.sub(r'CURRENT_PROJECT_VERSION = [0-9]+;', 'CURRENT_PROJECT_VERSION = '+os.environ['GITHUB_RUN_NUMBER']+';', s)
           p.write_text(s)
           # App groups in entitlements must not refer to upstream owner's group.
           for ent in Path("apps/ios/Orange Cloud").rglob("*.entitlements"):
               data=ent.read_text()
               data=data.replace('group.jiamin.chen.orange-cloud','group.com.jccmon.jcccloud')
+              data=data.replace('group.jiamin.chen.Orange-Cloud','group.com.jccmon.jcccloud')
+              data=data.replace('jiamin.chen.orange-cloud.shared','com.jccmon.jcccloud.shared')
               ent.write_text(data)
           PY
       - name: Validate Xcode project syntax
@@ -64,6 +69,8 @@ jobs:
           cp -R "$RUNNER_TEMP/DerivedData/Build/Products/Release-iphoneos/Orange Cloud.app" Payload/
           /usr/bin/zip -qry JCC-Cloud.ipa Payload
           test -s JCC-Cloud.ipa
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' 'Payload/Orange Cloud.app/Info.plist' | grep -Fx 'com.jccmon.jcccloud'
+          unzip -tq JCC-Cloud.ipa
       - name: Publish IPA and update AltStore feed
         env:
           GH_TOKEN: ${{ github.token }}
@@ -76,10 +83,13 @@ jobs:
           TAG="jcc-cloud-${RUN_NUMBER}"
           gh release create "$TAG" JCC-Cloud.ipa --title "JCC Cloud build ${RUN_NUMBER}" --notes "Unsigned self-built IPA from ${COMMIT_SHA}. Sign using AltStore. Upstream source: chen2he/orange-cloud." --latest
           python3 - <<'PY'
-          import json,os,datetime
+          import json,os,datetime,plistlib
           from pathlib import Path
           repo=os.environ['REPO']; run=os.environ['RUN_NUMBER']
           tag=f'jcc-cloud-{run}'
+          with open('Payload/Orange Cloud.app/Info.plist','rb') as fp: info=plistlib.load(fp)
+          version=str(info['CFBundleShortVersionString']); build=str(info['CFBundleVersion'])
+          if build != run: raise SystemExit(f'IPA build version {build} does not match run {run}')
           now=datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='seconds').replace('+00:00','Z')
           feed={
             'name':'JCC Cloud Builds',
@@ -93,14 +103,22 @@ jobs:
               'localizedDescription':'Personal build of Orange Cloud, from the upstream source. Unsigned IPA for AltStore signing.',
               'iconURL':'https://raw.githubusercontent.com/chen2he/orange-cloud/main/apps/web/public/icons/icon-512.png',
               'tintColor':'#F38020',
-              'version':f'1.0.{run}',
+              'version':version,
+              'buildVersion':build,
               'versionDate':now,
               'size':Path('JCC-Cloud.ipa').stat().st_size,
               'downloadURL':f'https://github.com/{repo}/releases/download/{tag}/JCC-Cloud.ipa',
               'permissions':[],
-              'versions':[{'version':f'1.0.{run}','date':now,'size':Path('JCC-Cloud.ipa').stat().st_size,'downloadURL':f'https://github.com/{repo}/releases/download/{tag}/JCC-Cloud.ipa','localizedDescription':f'Automated build from {os.environ["COMMIT_SHA"][:12]}'}]
+              'versions':[{'version':version,'buildVersion':build,'date':now,'size':Path('JCC-Cloud.ipa').stat().st_size,'downloadURL':f'https://github.com/{repo}/releases/download/{tag}/JCC-Cloud.ipa','localizedDescription':f'Automated build from {os.environ["COMMIT_SHA"][:12]}'}]
             }]
           }
+          previous=Path('source.json')
+          if previous.exists():
+              try:
+                  old=json.loads(previous.read_text())
+                  if old.get('apps'):
+                      feed['apps'][0]['versions']+=old['apps'][0].get('versions',[])[:19]
+              except (ValueError,KeyError,TypeError): pass
           Path('source.json').write_text(json.dumps(feed,ensure_ascii=False,indent=2)+'\n')
           PY
           git config user.name 'github-actions[bot]'
