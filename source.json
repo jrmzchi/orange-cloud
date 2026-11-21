@@ -1,12 +1,12 @@
 {
-  "name": "JCC Cloud Builds",
+  "name": "MeowFlare Builds",
   "identifier": "com.jccmon.altstore",
   "sourceURL": "https://raw.githubusercontent.com/jrmzchi/orange-cloud/main/source.json",
   "apps": [
     {
-      "name": "JCC Cloud",
+      "name": "MeowFlare",
       "bundleIdentifier": "com.jccmon.jcccloud",
-      "developerName": "JCC Cloud (self-build)",
+      "developerName": "MeowFlare (self-build)",
       "subtitle": "Cloudflare management client",
       "localizedDescription": "Personal build of Orange Cloud, from the upstream source. Unsigned IPA for AltStore signing.",
       "iconURL": "https://raw.githubusercontent.com/chen2he/orange-cloud/main/apps/web/public/icons/icon-512.png",

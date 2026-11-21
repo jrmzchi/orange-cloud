@@ -2,7 +2,7 @@
 //  SecurityInsightService.swift
 //  Orange Cloud
 //
-//  安全洞察（zone-settings.read / .write，全套餐可用）。端点与字段见 SecurityInsightModels。
+//  安全洞察（zone-security-center-insights.read / .write，全套餐可用）。端点与字段见 SecurityInsightModels。
 //
 
 import Foundation

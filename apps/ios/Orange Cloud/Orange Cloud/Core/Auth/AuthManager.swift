@@ -244,7 +244,8 @@ final class AuthManager {
         errorMessage = nil
         defer { isLoading = false }
 
-        let merged = Set(sessions[index].scopes).union(additionalScopes)
+        let merged = Set(sessions[index].scopes)
+            .union(FeaturePermission.scopeSetIncludingDependencies(Set(additionalScopes)))
         let scopeString = merged.sorted().joined(separator: " ")
         AppLog.auth.notice("reauthorize session=\(sessionId.uuidString) scopeCount=\(merged.count)")
 
@@ -305,7 +306,7 @@ final class AuthManager {
 
         let callbackURL = try await authenticate(with: components.url!, ephemeral: ephemeral)
         let code = try Self.extractCode(from: callbackURL, expectedState: state)
-        return try await exchangeCodeForToken(code: code, verifier: verifier)
+        return try await exchangeCodeForToken(code: code, verifier: verifier, requestedScope: scopeWithOffline)
     }
 
     /// 打开系统授权窗口，等待 orangecloud:// 回调
@@ -415,7 +416,7 @@ final class AuthManager {
         }
     }
 
-    private func exchangeCodeForToken(code: String, verifier: String) async throws -> TokenStore.StoredToken {
+    private func exchangeCodeForToken(code: String, verifier: String, requestedScope: String) async throws -> TokenStore.StoredToken {
         let response = try await requestToken(parameters: [
             "grant_type":    "authorization_code",
             "client_id":     OAuthConfig.clientID,
@@ -427,7 +428,8 @@ final class AuthManager {
             accessToken:  response.accessToken,
             refreshToken: response.refreshToken,
             expiresAt:    Date().addingTimeInterval(TimeInterval(response.expiresIn)),
-            scope:        response.scope ?? ""
+            // OAuth 2.0：省略 scope 表示与请求相同；明确返回空字符串则仍保留为空。
+            scope:        response.scope ?? requestedScope
         )
     }
 
@@ -550,6 +552,10 @@ final class AuthManager {
             scope:        response.scope ?? previousScope
         )
         TokenStore.save(newToken, sessionId: sessionId)
+        if let index = sessions.firstIndex(where: { $0.id == sessionId }) {
+            sessions[index].scopes = newToken.scope.split(separator: " ").map(String.init).sorted()
+            persist()
+        }
         AuthDiagnostics.recordWrite(refreshToken: newToken.refreshToken, sessionId: sessionId)
         sessionsNeedingReauth.remove(sessionId)   // 能刷新成功即链路健康，摘除陈旧标记
         AppLog.auth.info("refresh ok session=\(sessionId.uuidString) newRefreshFP=\(AuthDiagnostics.fingerprint(newToken.refreshToken))")

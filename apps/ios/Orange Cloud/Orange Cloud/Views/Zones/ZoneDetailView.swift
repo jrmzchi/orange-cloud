@@ -200,12 +200,12 @@ struct ZoneDetailView: View {
                             ZoneAccessRulesView(zoneId: zone.id, session: session)
                         }
     
-                        // 安全洞察（Security Center Insights）：全套餐免费，读写同 zone-settings.*；
+                        // 安全洞察（Security Center Insights）：使用专属 zone-security-center-insights.* 权限；
                         // 目的页是叶子（处理链接外跳浏览器，不再 push），eager 门控行即可
                         PermissionGatedNavigationLink(
                             label: String(localized: "安全洞察"),
                             systemImage: "exclamationmark.shield",
-                            requiredScope: "zone-settings.read",
+                            requiredScope: "zone-security-center-insights.read",
                             tint: .red,
                             showsChevron: true
                         ) {

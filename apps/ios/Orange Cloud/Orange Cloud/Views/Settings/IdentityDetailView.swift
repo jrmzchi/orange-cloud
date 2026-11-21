@@ -22,33 +22,23 @@ struct IdentityDetailView: View {
         auth.currentSessionId == identity.id
     }
 
+    private var currentIdentity: AuthSessionMeta {
+        auth.sessions.first(where: { $0.id == identity.id }) ?? identity
+    }
+
     /// 此身份的 scope → 功能模块（中文名 + 读写级别）
     private var grantedFeatures: [(title: String, note: String)] {
         FeaturePermission.allFeatures.compactMap { feature in
-            let readGranted = feature.readScopes.contains { identity.scopes.contains($0) }
-            let editGranted = feature.editScopes.contains { identity.scopes.contains($0) }
-            guard readGranted || editGranted else { return nil }
-            return (feature.title, editGranted ? String(localized: "读写") : String(localized: "只读"))
+            let scopes = Set(currentIdentity.scopes)
+            let hasPrimary = feature.readScopes.first.map { scopes.contains($0) } == true
+                || feature.editScopes.first.map { scopes.contains($0) } == true
+            guard hasPrimary else { return nil }
+            let readGranted = Set(feature.readScopes).isSubset(of: scopes)
+            let editGranted = !feature.editScopes.isEmpty && Set(feature.editScopes).isSubset(of: scopes)
+            let note = readGranted && editGranted ? String(localized: "读写")
+                : readGranted ? String(localized: "只读") : String(localized: "部分权限")
+            return (feature.title, note)
         }
-    }
-
-    /// 此身份完全未授予（读写都没有）的功能 → 可一键补齐
-    private var upgradeableFeatures: [FeaturePermission] {
-        FeaturePermission.allFeatures.filter { feature in
-            let hasRead = feature.readScopes.contains { identity.scopes.contains($0) }
-            let hasEdit = feature.editScopes.contains { identity.scopes.contains($0) }
-            return !hasRead && !hasEdit
-        }
-    }
-
-    /// 补齐 upgradeableFeatures 需要请求的 scope 全集
-    private var upgradeScopes: [String] {
-        var set = Set<String>()
-        for feature in upgradeableFeatures {
-            feature.readScopes.forEach { set.insert($0) }
-            feature.editScopes.forEach { set.insert($0) }
-        }
-        return Array(set)
     }
 
     var body: some View {
@@ -121,33 +111,17 @@ struct IdentityDetailView: View {
             }
             .glassRow()
 
-            // ── 升级授权（补齐未授予的功能，原地重授权同一账号）──
-            if !upgradeableFeatures.isEmpty {
-                Section {
-                    ForEach(upgradeableFeatures) { feature in
-                        HStack(spacing: 12) {
-                            Image(systemName: "lock")
-                                .foregroundStyle(.tertiary)
-                            Text(feature.title)
-                            Spacer()
-                            Text("未授权")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    ReauthorizeButton(
-                        sessionId: identity.id,
-                        scopes: upgradeScopes,
-                        title: String(localized: "一键补齐以上权限")
-                    )
-                    .foregroundStyle(Color.ocOrangeText)
-                } header: {
-                    Text("升级授权")
-                } footer: {
-                    Text("一键补齐会跳转 Cloudflare 重新授权当前账号，无需退出登录；你可在授权页自行勾选要开放的权限。")
+            // 已有只读权限也能在这里升级为读写，保持原身份 UUID。
+            Section {
+                NavigationLink {
+                    PermissionSelectionView(sessionId: identity.id)
+                } label: {
+                    Label("管理授权", systemImage: "lock.open")
                 }
-                .glassRow()
+            } footer: {
+                Text("按需补充功能或读写权限，无需退出登录。已有权限会保留。")
             }
+            .glassRow()
 
             // ── 退出登录 ──
             Section {

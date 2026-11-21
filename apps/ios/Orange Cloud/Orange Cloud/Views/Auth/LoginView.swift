@@ -35,7 +35,7 @@ struct LoginView: View {
                             .shadow(color: Color.ocOrange.opacity(0.34), radius: 14, y: 10)
                             .accessibilityHidden(true)   // 品牌图标装饰，下方有「Orange Cloud」文字
 
-                        Text("Orange Cloud")
+                        Text(verbatim: "MeowFlare")
                             .font(.system(.largeTitle, weight: .bold))   // 语义字号，随动态字体缩放
                             .foregroundStyle(.primary)
 

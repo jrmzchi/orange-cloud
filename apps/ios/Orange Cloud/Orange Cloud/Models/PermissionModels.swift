@@ -61,7 +61,7 @@ extension FeaturePermission {
         .init(
             id: "workers",
             title: String(localized: "Workers 脚本"),
-            description: String(localized: "查看和管理 Workers 无服务器函数"),
+            description: String(localized: "查看和管理 Workers 无服务器函数；历史日志查询需要读写授权"),
             icon: "bolt.circle",
             // workers-scripts.* 是 account 级（脚本/子域/自定义域）；workers-routes.* 是 zone 级
             // （/zones/{id}/workers/routes 单独的权限组），缺它会让路由查询 403 cf=10000。
@@ -76,7 +76,7 @@ extension FeaturePermission {
             title: String(localized: "Workers 实时日志"),
             description: String(localized: "查看 Workers 的实时执行日志"),
             icon: "text.alignleft",
-            readScopes: ["workers-tail.read"],
+            readScopes: ["workers-tail.read", "workers-scripts.read"],
             editScopes: [],
             isRequired: false
         ),
@@ -148,7 +148,7 @@ extension FeaturePermission {
             title: String(localized: "Workers 构建"),
             description: String(localized: "查看 CI 构建记录与日志；读写可取消构建"),
             icon: "hammer.circle",
-            readScopes: ["workers-ci.read"],
+            readScopes: ["workers-ci.read", "workers-scripts.read"],
             editScopes: ["workers-ci.write"],
             isRequired: false
         ),
@@ -158,7 +158,7 @@ extension FeaturePermission {
             description: String(localized: "把 R2 桶启用为 Iceberg 数据仓库，并用 R2 SQL 查询"),
             icon: "tablecells",
             // r2-catalog-sql.read 供 R2 SQL 查询控制台（api.sql.cloudflarestorage.com）
-            readScopes: ["r2-catalog.read", "r2-catalog-sql.read"],
+            readScopes: ["r2-catalog.read", "r2-catalog-sql.read", "workers-r2.read"],
             editScopes: ["r2-catalog.write"],
             isRequired: false
         ),
@@ -194,8 +194,9 @@ extension FeaturePermission {
             title: String(localized: "DNS 设置"),
             description: String(localized: "DNSSEC、CNAME 展平与名称服务器"),
             icon: "gearshape.2",
-            readScopes: ["zone-dns-settings.read"],
-            editScopes: ["zone-dns-settings.write"],
+            // 同一页面还调用 /dnssec，其权限属于 DNS，而非 Zone DNS Settings。
+            readScopes: ["zone-dns-settings.read", "dns.read"],
+            editScopes: ["zone-dns-settings.write", "dns.write"],
             isRequired: false
         ),
         .init(
@@ -224,9 +225,9 @@ extension FeaturePermission {
             icon: "envelope",
             // rules 是域名级，addresses 是账号级——两组 scope 都要才能完整使用
             readScopes: ["email-routing-rule.read", "email-routing-address.read",
-                         "email-routing-suppression.read"],
+                         "email-routing-suppression.read", "zone-settings.read"],
             editScopes: ["email-routing-rule.write", "email-routing-address.write",
-                         "email-routing-suppression.write"],
+                         "email-routing-suppression.write", "zone-settings.write"],
             isRequired: false
         ),
         .init(
@@ -254,6 +255,15 @@ extension FeaturePermission {
             icon: "speedometer",
             readScopes: ["zone-settings.read"],
             editScopes: ["zone-settings.write", "cache.purge"],
+            isRequired: false
+        ),
+        .init(
+            id: "security_insights",
+            title: String(localized: "安全洞察"),
+            description: String(localized: "查看安全洞察、发起扫描与忽略问题"),
+            icon: "exclamationmark.shield",
+            readScopes: ["zone-security-center-insights.read"],
+            editScopes: ["zone-security-center-insights.write"],
             isRequired: false
         ),
         .init(
@@ -407,6 +417,27 @@ extension FeaturePermission {
     ]
 
     // MARK: - Scope 构建
+
+    /// 补齐本次请求模块的依赖，不遍历已有授权，避免开启未选择的功能。
+    static func scopeSetIncludingDependencies(_ requested: Set<String>) -> Set<String> {
+        var result = requested
+        let knownReadScopes = Set(allFeatures.flatMap(\.readScopes))
+        for feature in allFeatures {
+            if feature.isRequired || feature.readScopes.first.map({ requested.contains($0) }) == true {
+                result.formUnion(feature.readScopes)
+            }
+            if feature.editScopes.first.map({ requested.contains($0) }) == true {
+                result.formUnion(feature.readScopes)
+                result.formUnion(feature.editScopes)
+            }
+        }
+        for scope in requested {
+            guard let separator = scope.lastIndex(of: ".") else { continue }
+            let readScope = String(scope[..<separator]) + ".read"
+            if knownReadScopes.contains(readScope) { result.insert(readScope) }
+        }
+        return result
+    }
 
     /// 根据当前选择，生成最小权限 scope 集合
     static func buildScopeSet(from permissions: [FeaturePermission]) -> Set<String> {

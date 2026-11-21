@@ -430,16 +430,10 @@
 				E9EF3A1F2FD98F7B007C2377 /* Sources */,
 				E9EF3A202FD98F7B007C2377 /* Frameworks */,
 				E9EF3A212FD98F7B007C2377 /* Resources */,
-				AB12CD00000000000000000B /* Embed Foundation Extensions */,
-				E9AD1A7D2FE1B6A90020AAAF /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				AB12CD00000000000000000E /* PBXTargetDependency */,
-				E9AD1A782FE1B6A90020AAAF /* PBXTargetDependency */,
-				E9C1769D2FEED96500BFBC18 /* PBXTargetDependency */,
-				E9C18C7A2FF10C7200BFBC18 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				AB12CD000000000000000003 /* Shared */,
@@ -974,7 +968,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Orange Cloud/Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "Orange Cloud";
+				INFOPLIST_KEY_CFBundleDisplayName = MeowFlare;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "\U00a9 2026 Zhe Tech Co., Ltd.";
@@ -990,7 +984,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 2.2.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "jiamin.chen.orange-cloud";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.jccmon.jcccloud";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -1019,7 +1013,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Orange Cloud/Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "Orange Cloud";
+				INFOPLIST_KEY_CFBundleDisplayName = MeowFlare;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "\U00a9 2026 Zhe Tech Co., Ltd.";
@@ -1035,7 +1029,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 2.2.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "jiamin.chen.orange-cloud";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.jccmon.jcccloud";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -1259,7 +1253,7 @@
 		5EAB1E0000000000000000E2 /* Sentry */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 5EAB1E0000000000000000E1 /* XCRemoteSwiftPackageReference "sentry-cocoa" */;
-			productName = Sentry;
+			productName = "Sentry-Dynamic";
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

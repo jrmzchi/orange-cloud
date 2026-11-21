@@ -10,7 +10,23 @@ import Observation
 @MainActor
 final class PermissionSelectionViewModel {
 
-    var permissions: [FeaturePermission] = FeaturePermission.allFeatures
+    var permissions: [FeaturePermission] = FeaturePermission.allFeatures.map {
+        var feature = $0
+        feature.isEnabled = feature.isRequired
+        return feature
+    }
+
+    /// 重新授权时展示该身份的现有选择；未选择的新权限仍保持关闭。
+    func applyGrantedScopes(_ scopes: [String]) {
+        let granted = Set(scopes)
+        for i in permissions.indices {
+            permissions[i].isEnabled = permissions[i].isRequired
+                || permissions[i].readScopes.first.map({ granted.contains($0) }) == true
+                || permissions[i].editScopes.first.map({ granted.contains($0) }) == true
+            permissions[i].canEdit = !permissions[i].editScopes.isEmpty
+                && Set(permissions[i].editScopes).isSubset(of: granted)
+        }
+    }
 
     // 当前选中的 scope ID 列表（用于预览）
     var selectedScopes: [String] {

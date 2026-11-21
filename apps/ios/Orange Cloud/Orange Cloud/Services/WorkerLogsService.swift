@@ -3,7 +3,7 @@
 //  Orange Cloud
 //
 //  Workers Logs（Observability）历史日志查询。
-//  端点 POST /accounts/{id}/workers/observability/telemetry/query（scope: workers-observability.read）。
+//  端点 POST /accounts/{id}/workers/observability/telemetry/query（scope: workers-observability.write）。
 //  view=events 返回逐条日志；游标是上一页最后一条的 $metadata.id。
 //
 

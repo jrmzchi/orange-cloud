@@ -28,7 +28,7 @@ struct AboutView: View {
                         .font(.system(size: 44))
                         .foregroundStyle(Color.ocOrange)
                         .accessibilityHidden(true)
-                    Text(verbatim: "Orange Cloud")
+                    Text(verbatim: "MeowFlare")
                         .font(.title2.bold())
                     Text(appVersion)
                         .font(.callout)
@@ -81,7 +81,7 @@ struct AboutView: View {
                 Text("法律")
             } footer: {
                 VStack(spacing: 4) {
-                    Text("Orange Cloud · 第三方 Cloudflare 客户端")
+                    Text(verbatim: "MeowFlare · 第三方 Cloudflare 客户端")
                     Text("© 2026 柘家科技有限公司")
                 }
                 .frame(maxWidth: .infinity, alignment: .center)

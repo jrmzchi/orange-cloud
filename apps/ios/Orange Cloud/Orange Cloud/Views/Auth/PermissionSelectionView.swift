@@ -11,6 +11,8 @@ struct PermissionSelectionView: View {
 
     /// 添加第二个身份时必须为 true（强制全新登录页，避免复用浏览器 Cookie）
     var freshLogin = false
+    /// 非 nil 时在原身份上追加授权，不调用新增账号流程。
+    var sessionId: UUID? = nil
 
     @Environment(AuthManager.self) private var auth
     @State private var viewModel = PermissionSelectionViewModel()
@@ -23,7 +25,9 @@ struct PermissionSelectionView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Label("选择授权范围", systemImage: "lock.shield")
                         .font(.headline)
-                    Text("只申请你需要的权限。授权后可在 Cloudflare Dashboard 随时撤销。")
+                    Text(sessionId == nil
+                         ? "默认只申请账号与域名基础权限。其他功能可按需选择，或登录后补充授权。"
+                         : "选择要补充的功能与读写权限。已有权限会保留；撤销权限请前往 Cloudflare Dashboard。")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -90,7 +94,11 @@ struct PermissionSelectionView: View {
                 Divider()
                 Button {
                     Task {
-                        await auth.login(scopeString: viewModel.scopeString, freshLogin: freshLogin)
+                        if let sessionId {
+                            await auth.reauthorize(sessionId: sessionId, additionalScopes: viewModel.selectedScopes)
+                        } else {
+                            await auth.login(scopeString: viewModel.scopeString, freshLogin: freshLogin)
+                        }
                     }
                 } label: {
                     HStack {
@@ -118,6 +126,11 @@ struct PermissionSelectionView: View {
             Button("好", role: .cancel) {}
         } message: {
             Text(auth.errorMessage ?? "")
+        }
+        .onAppear {
+            if let sessionId, let identity = auth.sessions.first(where: { $0.id == sessionId }) {
+                viewModel.applyGrantedScopes(identity.scopes)
+            }
         }
     }
 

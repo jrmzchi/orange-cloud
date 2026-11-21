@@ -5,7 +5,7 @@
 //  安全洞察（Security Center Insights）：按严重度分组列出 zone 的安全配置问题，
 //  可「去处理」（外跳 Dashboard 对应页）、逐条「忽略」，工具栏「立即扫描」。
 //  入口：域名详情「管理」卡（与 WAF / IP 访问规则同处安全区）。全套餐免费。
-//  读需 zone-settings.read（入口已门控），扫描 / 忽略需 zone-settings.write。
+//  读需 zone-security-center-insights.read（入口已门控），扫描 / 忽略需 zone-security-center-insights.write。
 //
 
 import SwiftUI
@@ -26,7 +26,7 @@ struct SecurityInsightsView: View {
         ))
     }
 
-    private var canWrite: Bool { auth.hasScope("zone-settings.write") }
+    private var canWrite: Bool { auth.hasScope("zone-security-center-insights.write") }
 
     var body: some View {
         ScrollView {
@@ -85,12 +85,12 @@ struct SecurityInsightsView: View {
         .alert("权限不足", isPresented: $showDenied) {
             if let sessionId = auth.currentSessionId {
                 Button("一键重授权") {
-                    Task { await auth.reauthorize(sessionId: sessionId, additionalScopes: ["zone-settings.write"]) }
+                    Task { await auth.reauthorize(sessionId: sessionId, additionalScopes: ["zone-security-center-insights.write"]) }
                 }
             }
             Button("好", role: .cancel) {}
         } message: {
-            Text("当前授权未包含此操作所需权限（\("zone-settings.write")）。点「一键重授权」补齐，无需退出登录。")
+            Text("当前授权未包含此操作所需权限（\("zone-security-center-insights.write")）。点「一键重授权」补齐，无需退出登录。")
         }
         // 加载失败已有整页失败态；这里只弹操作（扫描 / 忽略）与刷新时的错误
         .alert("出错了", isPresented: .init(

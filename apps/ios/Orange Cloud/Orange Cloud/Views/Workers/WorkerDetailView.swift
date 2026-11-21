@@ -156,7 +156,7 @@ struct WorkerDetailView: View {
                 ProGatedNavigationLink(
                     label: String(localized: "历史日志"),
                     systemImage: "clock.badge.checkmark",
-                    requiredScope: "workers-observability.read",
+                    requiredScope: "workers-observability.write",
                     feature: .workerTail
                 ) {
                     WorkerLogsView(accountId: script.accountId, scriptName: script.id, session: session)

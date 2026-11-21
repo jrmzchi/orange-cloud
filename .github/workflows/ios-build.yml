@@ -1,4 +1,4 @@
-name: Build JCC Cloud IPA and AltStore Source
+name: Build MeowFlare Lite IPA and AltStore Source
 on:
   workflow_dispatch:
   push:
@@ -10,47 +10,42 @@ permissions:
   contents: write
 concurrency:
   group: jcc-cloud-release
-  cancel-in-progress: true
+  cancel-in-progress: false
 jobs:
   build:
     runs-on: macos-26
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
-      - name: Select Xcode 26
-        run: |
-          xcodebuild -version
+      - name: Inspect Xcode
+        run: xcodebuild -version
       - name: Configure fork identifiers and open-source features
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
+          import os, re
           from pathlib import Path
-          p=Path("apps/ios/Orange Cloud/Orange Cloud.xcodeproj/project.pbxproj")
-          s=p.read_text()
-          s=s.replace('jiamin.chen.orange-cloud','com.jccmon.jcccloud')
-          s=s.replace('INFOPLIST_KEY_CFBundleDisplayName = "Orange Cloud";', 'INFOPLIST_KEY_CFBundleDisplayName = "JCC Cloud";')
-          s=s.replace('DEVELOPMENT_TEAM = 6G78MMY657;', 'DEVELOPMENT_TEAM = "";')
-          # Build setting is inherited by the main app and embedded extensions.
-          s=s.replace('SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";','SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG OPENSOURCE_UNLOCKED $(inherited)";')
-          s=s.replace('SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited)";','SWIFT_ACTIVE_COMPILATION_CONDITIONS = "OPENSOURCE_UNLOCKED $(inherited)";')
-          import os,re
-          s=re.sub(r'CURRENT_PROJECT_VERSION = [0-9]+;', 'CURRENT_PROJECT_VERSION = '+os.environ['GITHUB_RUN_NUMBER']+';', s)
+          p = Path('apps/ios/Orange Cloud/Orange Cloud.xcodeproj/project.pbxproj')
+          s = p.read_text()
+          s = s.replace('DEVELOPMENT_TEAM = 6G78MMY657;', 'DEVELOPMENT_TEAM = "";')
+          s = re.sub(r'CURRENT_PROJECT_VERSION = [0-9]+;', 'CURRENT_PROJECT_VERSION = ' + os.environ['GITHUB_RUN_NUMBER'] + ';', s)
           p.write_text(s)
-          # App groups in entitlements must not refer to upstream owner's group.
-          for ent in Path("apps/ios/Orange Cloud").rglob("*.entitlements"):
-              data=ent.read_text()
-              data=data.replace('group.jiamin.chen.orange-cloud','group.com.jccmon.jcccloud')
-              data=data.replace('group.jiamin.chen.Orange-Cloud','group.com.jccmon.jcccloud')
-              data=data.replace('jiamin.chen.orange-cloud.shared','com.jccmon.jcccloud.shared')
-              ent.write_text(data)
+          # Keep the main app's groups consistent with this fork; no extensions are built.
+          for ent in Path('apps/ios/Orange Cloud/Orange Cloud').glob('*.entitlements'):
+              s = ent.read_text().replace('group.jiamin.chen.Orange-Cloud', 'group.com.jccmon.jcccloud')
+              s = s.replace('group.jiamin.chen.orange-cloud', 'group.com.jccmon.jcccloud')
+              s = s.replace('jiamin.chen.orange-cloud.shared', 'com.jccmon.jcccloud.shared')
+              ent.write_text(s)
           PY
-      - name: Validate Xcode project syntax
+      - name: Validate project and OAuth permission behavior
         shell: bash
         run: |
+          set -euo pipefail
           plutil -lint "apps/ios/Orange Cloud/Orange Cloud.xcodeproj/project.pbxproj"
           xcodebuild -list -project "apps/ios/Orange Cloud/Orange Cloud.xcodeproj"
-      - name: Build unsigned iOS application
+          bash scripts/test_oauth_permissions.sh
+      - name: Build unsigned iPhone application only
         shell: bash
         run: |
           set -euo pipefail
@@ -61,51 +56,25 @@ jobs:
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
             SWIFT_ACTIVE_COMPILATION_CONDITIONS='OPENSOURCE_UNLOCKED' \
             build
-      - name: Package unsigned IPA
+      - name: Package and validate release Lite IPA
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p Payload
           cp -R "$RUNNER_TEMP/DerivedData/Build/Products/Release-iphoneos/Orange Cloud.app" Payload/
-          /usr/bin/zip -qry JCC-Cloud.ipa Payload
-          test -s JCC-Cloud.ipa
-          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' 'Payload/Orange Cloud.app/Info.plist' | grep -Fx 'com.jccmon.jcccloud'
-          unzip -tq JCC-Cloud.ipa
-      - name: Create diagnostic IPAs and inspect Mach-O files
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p diagnostic
-          cp JCC-Cloud.ipa diagnostic/JCC-Cloud-Full.ipa
-          cp -R Payload diagnostic/
-          APP="diagnostic/Payload/Orange Cloud.app"
-          # Keep the main iOS app and its required frameworks, but remove optional embedded targets.
-          rm -rf "$APP/Watch" "$APP/PlugIns"
-          (cd diagnostic && /usr/bin/zip -qry JCC-Cloud-Lite.ipa Payload)
-          rm -rf diagnostic/Payload
-          for ipa in diagnostic/*.ipa; do
-            unzip -tq "$ipa"
-            echo "=== $ipa ==="
-            unzip -Z1 "$ipa" | grep -E '(^Payload/[^/]+\\.app/|/PlugIns/|/Watch/)' | head -80 || true
-          done
-          find Payload -type f -print0 | while IFS= read -r -d '' file; do
-            if file -b "$file" | grep -q 'Mach-O'; then
-              echo "MACHO: $file"
-              xcrun lipo -archs "$file" || true
-              xcrun codesign -dv "$file" 2>&1 | head -8 || true
-            fi
-          done
-      - name: Upload diagnostic IPA variants
+          # Defensive stripping if Xcode ever reintroduces optional embedded targets.
+          rm -rf "Payload/Orange Cloud.app/Watch" "Payload/Orange Cloud.app/PlugIns"
+          /usr/bin/zip -qry MeowFlare-Lite.ipa Payload
+          python3 scripts/validate_lite_ipa.py MeowFlare-Lite.ipa > "$RUNNER_TEMP/ipa-info.json"
+      - name: Upload validated Lite IPA
         uses: actions/upload-artifact@v4
         with:
-          name: JCC-Cloud-Signing-Diagnostics
-          path: |
-            diagnostic/JCC-Cloud-Full.ipa
-            diagnostic/JCC-Cloud-Lite.ipa
+          name: MeowFlare-Lite
+          path: MeowFlare-Lite.ipa
           if-no-files-found: error
           retention-days: 7
-      - name: Publish IPA and update AltStore feed
-        if: ${{ false }}
+      - name: Publish Lite IPA and update AltStore feed
+        if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -115,48 +84,44 @@ jobs:
         run: |
           set -euo pipefail
           TAG="jcc-cloud-${RUN_NUMBER}"
-          gh release create "$TAG" JCC-Cloud.ipa --title "JCC Cloud build ${RUN_NUMBER}" --notes "Unsigned self-built IPA from ${COMMIT_SHA}. Sign using AltStore. Upstream source: chen2he/orange-cloud." --latest
+          if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+            gh release upload "$TAG" MeowFlare-Lite.ipa --clobber --repo "$REPO"
+          else
+            gh release create "$TAG" MeowFlare-Lite.ipa --target "$COMMIT_SHA" \
+              --title "MeowFlare build ${RUN_NUMBER}" \
+              --notes "iPhone-only Lite IPA from ${COMMIT_SHA}. No Watch or app extensions. Sign using AltStore. Upstream: chen2he/orange-cloud." --latest
+          fi
+          # Read the current feed after the build, then use its SHA as a write lease.
+          gh api "repos/$REPO/contents/source.json?ref=main" > "$RUNNER_TEMP/source-current.json"
           python3 - <<'PY'
-          import json,os,datetime,plistlib
+          import base64, datetime, json, os
           from pathlib import Path
-          repo=os.environ['REPO']; run=os.environ['RUN_NUMBER']
-          tag=f'jcc-cloud-{run}'
-          with open('Payload/Orange Cloud.app/Info.plist','rb') as fp: info=plistlib.load(fp)
-          version=str(info['CFBundleShortVersionString']); build=str(info['CFBundleVersion'])
-          if build != run: raise SystemExit(f'IPA build version {build} does not match run {run}')
-          now=datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='seconds').replace('+00:00','Z')
-          feed={
-            'name':'JCC Cloud Builds',
-            'identifier':'com.jccmon.altstore',
-            'sourceURL':f'https://raw.githubusercontent.com/{repo}/main/source.json',
-            'apps':[{
-              'name':'JCC Cloud',
-              'bundleIdentifier':'com.jccmon.jcccloud',
-              'developerName':'JCC Cloud (self-build)',
-              'subtitle':'Cloudflare management client',
-              'localizedDescription':'Personal build of Orange Cloud, from the upstream source. Unsigned IPA for AltStore signing.',
-              'iconURL':'https://raw.githubusercontent.com/chen2he/orange-cloud/main/apps/web/public/icons/icon-512.png',
-              'tintColor':'#F38020',
-              'version':version,
-              'buildVersion':build,
-              'versionDate':now,
-              'size':Path('JCC-Cloud.ipa').stat().st_size,
-              'downloadURL':f'https://github.com/{repo}/releases/download/{tag}/JCC-Cloud.ipa',
-              'permissions':[],
-              'versions':[{'version':version,'buildVersion':build,'date':now,'size':Path('JCC-Cloud.ipa').stat().st_size,'downloadURL':f'https://github.com/{repo}/releases/download/{tag}/JCC-Cloud.ipa','localizedDescription':f'Automated build from {os.environ["COMMIT_SHA"][:12]}'}]
-            }]
-          }
-          previous=Path('source.json')
-          if previous.exists():
-              try:
-                  old=json.loads(previous.read_text())
-                  if old.get('apps'):
-                      feed['apps'][0]['versions']+=old['apps'][0].get('versions',[])[:19]
-              except (ValueError,KeyError,TypeError): pass
-          Path('source.json').write_text(json.dumps(feed,ensure_ascii=False,indent=2)+'\n')
+          temp = Path(os.environ['RUNNER_TEMP'])
+          info = json.loads((temp / 'ipa-info.json').read_text())
+          current = json.loads((temp / 'source-current.json').read_text())
+          feed = json.loads(base64.b64decode(current['content']))
+          app = next(a for a in feed['apps'] if a['bundleIdentifier'] == 'com.jccmon.jcccloud')
+          version = str(info['CFBundleShortVersionString'])
+          build = str(info['CFBundleVersion'])
+          run = os.environ['RUN_NUMBER']
+          assert build == run, f'IPA build {build} does not match run {run}'
+          repo = os.environ['REPO']
+          url = f'https://github.com/{repo}/releases/download/jcc-cloud-{run}/MeowFlare-Lite.ipa'
+          now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='seconds').replace('+00:00', 'Z')
+          size = Path('MeowFlare-Lite.ipa').stat().st_size
+          entry = dict(version=version, buildVersion=build, date=now, size=size, downloadURL=url,
+                       minOSVersion=info['MinimumOSVersion'], localizedDescription=f'Lite build from {os.environ["COMMIT_SHA"][:12]}')
+          # Historical Full builds remain on GitHub, but must not be offered as Lite in AltStore.
+          history = [v for v in app.get('versions', [])
+                     if v.get('downloadURL', '').endswith('/MeowFlare-Lite.ipa')
+                     and (v.get('version'), v.get('buildVersion')) != (version, build)]
+          app.update(name='MeowFlare', developerName='MeowFlare (self-build)', version=version,
+                     buildVersion=build, versionDate=now, size=size, downloadURL=url,
+                     versions=[entry] + history[:19])
+          feed.update(name='MeowFlare Builds', sourceURL=f'https://raw.githubusercontent.com/{repo}/main/source.json')
+          content = json.dumps(feed, ensure_ascii=False, indent=2) + '\n'
+          request = dict(message=f'ci: publish MeowFlare Lite build {run} to AltStore',
+                         content=base64.b64encode(content.encode()).decode(), sha=current['sha'], branch='main')
+          (temp / 'source-update.json').write_text(json.dumps(request))
           PY
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add source.json
-          git commit -m "ci: update AltStore source for build ${RUN_NUMBER}" || true
-          git push origin HEAD:main
+          gh api --method PUT "repos/$REPO/contents/source.json" --input "$RUNNER_TEMP/source-update.json" --silent
