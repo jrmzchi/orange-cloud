@@ -687,15 +687,10 @@ struct ZoneDetailView: View {
         } message: {
             Text("当前授权未包含此操作所需权限（\(deniedScopeHint)）。点「一键重授权」补齐，无需退出登录。")
         }
-        .alert("操作失败", isPresented: .init(
-            get: { actionsViewModel.error != nil },
-            set: { if !$0 { actionsViewModel.error = nil } }
-        )) {
-            apiErrorDocButton(for: actionsViewModel.error)
-            Button("好", role: .cancel) {}
-        } message: {
-            Text(actionsViewModel.error ?? "")
-        }
+        .modifier(ZoneActionErrorAlert(
+            error: $actionsViewModel.error,
+            documentationButton: { apiErrorDocButton(for: actionsViewModel.error) }
+        ))
     }
 
     // MARK: - 暂停态与缓存同步
@@ -1049,6 +1044,26 @@ private extension View {
                 .foregroundStyle(.secondary)
                 .padding(.trailing, 24)
                 .allowsHitTesting(false)
+        }
+    }
+}
+
+
+// Isolate the alert's generic ViewBuilder from the already-large ZoneDetailView body.
+// This avoids Swift's expression type-checking timeout in release builds.
+private struct ZoneActionErrorAlert<DocumentationButton: View>: ViewModifier {
+    @Binding var error: String?
+    let documentationButton: () -> DocumentationButton
+
+    func body(content: Content) -> some View {
+        content.alert("操作失败", isPresented: Binding(
+            get: { error != nil },
+            set: { if !$0 { error = nil } }
+        )) {
+            documentationButton()
+            Button("好", role: .cancel) {}
+        } message: {
+            Text(error ?? "")
         }
     }
 }
