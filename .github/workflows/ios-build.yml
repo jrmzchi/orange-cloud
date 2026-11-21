@@ -29,7 +29,7 @@ jobs:
           p=Path("apps/ios/Orange Cloud/Orange Cloud.xcodeproj/project.pbxproj")
           s=p.read_text()
           s=s.replace('jiamin.chen.orange-cloud','com.jccmon.jcccloud')
-          s=s.replace('6G78MMY657','')
+          s=s.replace('DEVELOPMENT_TEAM = 6G78MMY657;', 'DEVELOPMENT_TEAM = "";')
           # Build setting is inherited by the main app and embedded extensions.
           s=s.replace('SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";','SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG OPENSOURCE_UNLOCKED $(inherited)";')
           s=s.replace('SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited)";','SWIFT_ACTIVE_COMPILATION_CONDITIONS = "OPENSOURCE_UNLOCKED $(inherited)";')
@@ -40,6 +40,11 @@ jobs:
               data=data.replace('group.jiamin.chen.orange-cloud','group.com.jccmon.jcccloud')
               ent.write_text(data)
           PY
+      - name: Validate Xcode project syntax
+        shell: bash
+        run: |
+          plutil -lint "apps/ios/Orange Cloud/Orange Cloud.xcodeproj/project.pbxproj"
+          xcodebuild -list -project "apps/ios/Orange Cloud/Orange Cloud.xcodeproj"
       - name: Build unsigned iOS application
         shell: bash
         run: |
