@@ -1,0 +1,32 @@
+{
+  "name": "JCC Cloud Builds",
+  "identifier": "com.jccmon.altstore",
+  "sourceURL": "https://raw.githubusercontent.com/jrmzchi/orange-cloud/main/source.json",
+  "apps": [
+    {
+      "name": "JCC Cloud",
+      "bundleIdentifier": "com.jccmon.jcccloud",
+      "developerName": "JCC Cloud (self-build)",
+      "subtitle": "Cloudflare management client",
+      "localizedDescription": "Personal build of Orange Cloud, from the upstream source. Unsigned IPA for AltStore signing.",
+      "iconURL": "https://raw.githubusercontent.com/chen2he/orange-cloud/main/apps/web/public/icons/icon-512.png",
+      "tintColor": "#F38020",
+      "version": "2.2.0",
+      "buildVersion": "7",
+      "versionDate": "2026-11-21T15:36:45Z",
+      "size": 16033658,
+      "downloadURL": "https://github.com/jrmzchi/orange-cloud/releases/download/jcc-cloud-7/JCC-Cloud.ipa",
+      "permissions": [],
+      "versions": [
+        {
+          "version": "2.2.0",
+          "buildVersion": "7",
+          "date": "2026-11-21T15:36:45Z",
+          "size": 16033658,
+          "downloadURL": "https://github.com/jrmzchi/orange-cloud/releases/download/jcc-cloud-7/JCC-Cloud.ipa",
+          "localizedDescription": "Automated build from bafa3227336c"
+        }
+      ]
+    }
+  ]
+}
